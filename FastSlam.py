@@ -4,36 +4,44 @@ import random
 import matplotlib.pyplot as plt
 import rosbag # Assuming we have rosbag installed
 
+
 def read_rosbag_data(filename):
     bag=rosbag.Bag(filename)
     #Extract relevant data from the bag
     #These should be the measurements (aruco detections)
     #Return the extracted data as arrays or lists
 
-def motion_model(particle):
+#We define the covariance matrixes of the errors related to v and omega as Q_v and Q_omega    
+    
+def motion_model(particle,Q_v,Q_omega):
     #Implement the motion model to predict next position
     #Probably we don't need controls "u" because we do not have odometry -> assume constant velocity?
-    matrixA=np.array([[1,0,0],
-                      [0,1,0],
-                      [0,0,1]])
+    
+    matrixA=np.array([[1,0,0,0,0],
+                      [0,1,0,0,0],
+                      [0,0,1,0,0],
+                      [0,0,0,1,0],
+                      [0,0,0,0,1]])
     arrayB=np.array([linear_vel*dt*math.cos(particle['pose'][2]),
                      linear_vel*dt*math.sin(particle['pose'][2]),
-                     angular_vel*dt])
-
-    #Define noise???? WHAT IS THE NOISE
+                     angular_vel*dt,
+                     random.multivariate_normal(0,Q_v),
+                     random.multivariate_normal(0,Q_omega)])
 
     #Update the new position
     pose_array=np.array[particle['pose']] #Turns the pose of the particle into an array for matrix multiplication
-    new_pose= matrixA @ pose_array + arrayB # + NOISE?????
+    new_pose= matrixA @ pose_array + arrayB 
     x,y,theta = new_pose
     particle['pose'] = [x,y,theta]
     #Return the new particle with the new 'pose'
     return particle
 
+
 def measurement_model(z,x):
     #Calculates the expected measurement given the current estimate of the landmark
     #Return the expected measurement to be used in EKF update probably
     return()
+
 
     
 def is_landmark_seen(particle, landmark_id):
@@ -42,12 +50,19 @@ def is_landmark_seen(particle, landmark_id):
             return True  # Landmark already seen in the particle
     return False  # Landmark is new
 
-def ekf_update_landmark(mu, sigma, z, Q):
+def ekf_update_landmark( particle, z, Q):
     # Implements the EKF update for a single landmark
-    # mu: Mean of the landmark estimate
-    # sigma: Covariance matrix of the landmark estimate
     # z: Measurement of the landmark
     # Q: Measurement noise covariance matrix
+    # particle: we give as input the particle and we iterate this function for each particle, to update all of them
+    ld_ID=#we take from the measurement the ID
+    
+    #H: we need the hessian in order to compute K
+    #We do an estimation of the measurement 
+    z_est=particle['landmarks'][ld_ID]['mu']-particle['pose'][1]
+    K=particle['landmarks'][ld_ID]['sigma']*H_transpose*numpy.linalg.inverse(H*particle['landmarks'][ld_ID]['sigma']*H_transpose+Q)
+    
+    
     return()
 
 def resample_particles(particles, weights):
